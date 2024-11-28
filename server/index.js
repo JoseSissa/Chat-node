@@ -17,7 +17,8 @@ export const turso = createClient({
 await turso.execute(`
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    content TEXT
+    content TEXT,
+    username TEXT
   );`
 )
 
@@ -35,28 +36,29 @@ io.on('connection', async (socket) => {
 
   socket.on('chat message', async (message) => {
     let result
+    const username = socket.handshake.auth.username ?? 'Anonymous'
     try {
       result = await turso.execute({
-        sql: `INSERT INTO messages (content) VALUES (?)`,
-        args: [message],
+        sql: `INSERT INTO messages (content, username) VALUES (?, ?)`,
+        args: [message, username],
       })
     } catch (error) {
       console.error(error)
       return
     }
 
-    io.emit('chat message', message, result.lastInsertRowid.toString())
+    io.emit('chat message', message, result.lastInsertRowid.toString(), username)
   })
 
   if(!socket.recovered) {
     try {
       const result = await turso.execute({
-        sql: `SELECT id, content FROM messages WHERE id > ?`,
+        sql: `SELECT id, content, username FROM messages WHERE id > ?`,
         args: [socket.handshake.auth.serverOffset ?? 0],
       })
 
       result.rows.forEach((row) => {
-        socket.emit('chat message', row.content, row.id.toString())
+        socket.emit('chat message', row.content, row.id.toString(), row.username)
       })
     } catch (error) {
       console.error(error)

@@ -6,9 +6,22 @@
     <title>Chat NodeJS</title>
     <script type="module">
         import { io } from 'https://cdn.socket.io/4.8.1/socket.io.esm.min.js'
+        const getUserName = async () => {
+            const username = localStorage.getItem('username')
+            if (username) {
+                console.log(`User existed: ${username}`)
+                return username             
+            }
+
+            const res = await fetch('https://random-data-api.com/api/users/random_user')
+            const { username: randomUserName } = await res.json()
+            localStorage.setItem('username', randomUserName)
+            return randomUserName;
+        }
 
         const socket = io({
             auth: {
+                username: await getUserName(),
                 serverOffset: 0
             }
         })
@@ -17,11 +30,13 @@
         const input = document.getElementById('input')
         const messages = document.getElementById('messages')
 
-        socket.on('chat message', (message, serverOffset) => {
+        socket.on('chat message', (message, serverOffset, username) => {
             const li = document.createElement('li')
-            li.textContent = message
+            li.innerHTML = `${message} <br><small>${username}</small>`
             messages.appendChild(li)
             socket.auth.serverOffset = serverOffset
+            // scroll to bottom of messages
+            messages.scrollTop = messages.scrollHeight
         })
 
         form.addEventListener('submit', e => {
